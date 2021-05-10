@@ -19,10 +19,10 @@ batch_size_test = 60
 learning_rate = 0.01
 log_interval = 10
 
-num_vectors = 4
+num_vectors = 5
 len_vectors = 10
-img_height = 28
-img_width = 28
+img_height =32
+img_width = 32
 win_size = 3
 epsilon = .7
 epochs = 6000
@@ -34,12 +34,12 @@ transform = torchvision.transforms.Compose(
 
 trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                         download=True, transform=transform)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size_train,
+train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size_train,
                                           shuffle=True, num_workers=2)
 
 testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                        download=True, transform=transform)
-testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size_test,
+test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size_test,
                                          shuffle=False, num_workers=2)
 
 classes = ('plane', 'car', 'bird', 'cat',
