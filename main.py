@@ -26,7 +26,7 @@ img_height =32
 img_width = 32
 win_size = 3
 epsilon = .7
-epochs = 6000
+epochs = 2
 steps = 30
 
 transform = torchvision.transforms.Compose(
@@ -219,3 +219,55 @@ for epoch in range(epochs):
     optimizer.step()
     print("Epoch: {}/{}  Loss: {}".format(epoch, epochs, loss))
 
+tot_corr = 0
+tot_batches = 0
+for example_data, target in test_loader:
+    tot_batches += batch_size_test
+
+    # initialize state
+    state = init_state(batch_size_test, img_height, img_width, num_vectors, len_vectors)
+
+    # put current batches into state
+    state[:, :, :, 0, :] = data_to_state(example_data, batch_size_test)
+    state1 = torch.clone(state)
+    state2 = torch.clone(state)
+    state3 = torch.clone(state)
+    for step in range(steps):
+        delta = compute_all(bottom_up_model_list, top_down_model_list, layer_att_model_list, state, len_vectors,
+                            num_vectors, batch_size_test)
+
+        # update state
+        state = state + delta
+        if (step % int(steps / 2) == 0):
+            state = state + state1 * .1
+            state1 = torch.clone(state)
+
+        if (step % int(steps / 4) == 0):
+            state = state + state2 * .1
+            state2 = torch.clone(state)
+
+        if (step % int(steps / 8) == 0):
+            state = state + state3 * .1
+            state3 = torch.clone(state)
+
+    state = state + state1 * .1 + state2 * .1 + state3 * .1
+    for batch in range(batch_size_test):
+        temp = torch.zeros((10))
+        for height in range(img_height):
+            for width in range(img_width):
+                ind = torch.argmax(state[batch, height, width, -1])
+                temp[ind] += 1
+
+        if (target[batch] == torch.argmax(temp)):
+            tot_corr += 1
+    print("Acc: {}".format(tot_corr / tot_batches))
+print("Final Accuracy: {}".format(tot_corr / tot_batches))
+
+
+PATH = "best_models/"
+for i in range(num_vectors):
+    if(i<num_vectors-2):
+        torch.save(top_down_model_list[i],PATH+"top_down_model{}".format(i))
+    if(i<num_vectors-1):
+        torch.save(bottom_up_model_list[i],PATH+"bottom_up_model{}".format(i))
+        torch.save(layer_att_model_list[i],PATH+"layer_att_model{}".format(i))
