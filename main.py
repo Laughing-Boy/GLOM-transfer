@@ -219,6 +219,14 @@ for epoch in range(epochs):
     optimizer.step()
     print("Epoch: {}/{}  Loss: {}".format(epoch, epochs, loss))
 
+PATH = "best_models/"
+for i in range(num_vectors):
+    if(i<num_vectors-2):
+        torch.save(top_down_model_list[i],PATH+"top_down_model{}".format(i))
+    if(i<num_vectors-1):
+        torch.save(bottom_up_model_list[i],PATH+"bottom_up_model{}".format(i))
+        torch.save(layer_att_model_list[i],PATH+"layer_att_model{}".format(i))
+
 tot_corr = 0
 tot_batches = 0
 for example_data, target in test_loader:
@@ -266,11 +274,3 @@ for example_data, target in test_loader:
     print("Acc: {}".format(tot_corr / tot_batches))
 print("Final Accuracy: {}".format(tot_corr / tot_batches))
 
-
-PATH = "best_models/"
-for i in range(num_vectors):
-    if(i<num_vectors-2):
-        torch.save(top_down_model_list[i],PATH+"top_down_model{}".format(i))
-    if(i<num_vectors-1):
-        torch.save(bottom_up_model_list[i],PATH+"bottom_up_model{}".format(i))
-        torch.save(layer_att_model_list[i],PATH+"layer_att_model{}".format(i))
