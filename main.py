@@ -226,6 +226,9 @@ for example_data, target in test_loader:
 
     # initialize state
     state = init_state(batch_size_test, img_height, img_width, num_vectors, len_vectors)
+    example_data = torch.mean(example_data, dim=1)
+    torch.squeeze(example_data)
+    print(example_data.size())
 
     # put current batches into state
     state[:, :, :, 0, :] = data_to_state(example_data, batch_size_test)
