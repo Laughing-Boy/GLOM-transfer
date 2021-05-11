@@ -21,6 +21,7 @@ log_interval = 10
 
 num_vectors = 5
 len_vectors = 10
+channels = 3
 img_height =32
 img_width = 32
 win_size = 3
@@ -149,9 +150,9 @@ def compute_all(bottom_up_model_list, top_down_model_list, layer_att_model_list,
     delta = torch.reshape(delta, (batch_size, img_height, img_width, num_vectors, len_vectors))
     return delta
 
-bottom_up_model_list = [model(9*len_vectors,len_vectors).cuda() for i in range(num_vectors-1)]
-top_down_model_list= [model(9*len_vectors,len_vectors).cuda() for i in range(num_vectors-2)]
-layer_att_model_list = [model(9*len_vectors,len_vectors).cuda() for i in range(num_vectors-1)]
+bottom_up_model_list = [model(9*len_vectors,len_vectors).to(device) for i in range(num_vectors-1)]
+top_down_model_list= [model(9*len_vectors,len_vectors).to(device) for i in range(num_vectors-2)]
+layer_att_model_list = [model(9*len_vectors,len_vectors).to(device) for i in range(num_vectors-1)]
 
 # create parameter list of every model to feed into optimizer
 param_list = []
@@ -176,6 +177,10 @@ for epoch in range(epochs):
     except StopIteration:
         examples = enumerate(train_loader)
         batch_idx, (example_data, example_targets) = next(examples)
+
+    example_data = torch.mean(example_data,dim=1)
+    torch.squeeze(example_data)
+    print(example_data.size())
 
     # initialize state
     state = init_state(batch_size_train, img_height, img_width, num_vectors, len_vectors)
