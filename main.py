@@ -14,8 +14,8 @@ device = torch.device(dev)
 
 ## Hyperparamters
 
-batch_size_train = 60
-batch_size_test = 60
+batch_size_train = 30
+batch_size_test = 30
 learning_rate = 0.01
 log_interval = 10
 
