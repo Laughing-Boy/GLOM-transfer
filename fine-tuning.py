@@ -1,3 +1,13 @@
+'''
+for name, param in model.named_parameters():
+    if name not in ['fc.weight', 'fc.bias']:
+        param.requires_grad = False
+
+parameters = list(filter(lambda p: p.requires_grad, model.parameters()))
+assert len(parameters) == 2  # fc.weight, fc.bias
+'''
+from main import model
+
 import os
 import torch
 import torchvision
@@ -20,7 +30,7 @@ batch_size_test = 30
 learning_rate = 0.01
 log_interval = 10
 
-num_vectors = 4
+num_vectors = 5
 len_vectors = 10
 channels = 3
 img_height =32
@@ -146,6 +156,10 @@ def compute_all(bottom_up_model_list, top_down_model_list, layer_att_model_list,
             att_layer_temp = layer_att_model_list[i](torch.reshape(att_list[:, :, :, i + 1, :], (-1, len_vectors * 9)))
             delta[i + 1] = delta[i + 1] + bottom_up_temp + att_layer_temp
 
+        if i == num_vectors-1:
+            bottom_up_model_list[i]
+
+
     # format delta so that delta and state can be added together
     delta = torch.stack(delta, dim=1)  # .permute(0,2,1)#.permute(2,0,1)
     delta = torch.reshape(delta, (batch_size, img_height, img_width, num_vectors, len_vectors))
@@ -229,50 +243,8 @@ for i in range(num_vectors):
         torch.save(bottom_up_model_list[i],PATH+"bottom_up_model{}".format(i))
         torch.save(layer_att_model_list[i],PATH+"layer_att_model{}".format(i))
 
-tot_corr = 0
-tot_batches = 0
-for example_data, target in test_loader:
-    tot_batches += batch_size_test
+### Cifar10 to MNIST
 
-    # initialize state
-    state = init_state(batch_size_test, img_height, img_width, num_vectors, len_vectors)
-    example_data = torch.mean(example_data, dim=1)
-    torch.squeeze(example_data)
-    print(example_data.size())
 
-    # put current batches into state
-    state[:, :, :, 0, :] = data_to_state(example_data, batch_size_test)
-    state1 = torch.clone(state)
-    state2 = torch.clone(state)
-    state3 = torch.clone(state)
-    for step in range(steps):
-        delta = compute_all(bottom_up_model_list, top_down_model_list, layer_att_model_list, state, len_vectors,
-                            num_vectors, batch_size_test)
 
-        # update state
-        state = state + delta
-        if (step % int(steps / 2) == 0):
-            state = state + state1 * .1
-            state1 = torch.clone(state)
-
-        if (step % int(steps / 4) == 0):
-            state = state + state2 * .1
-            state2 = torch.clone(state)
-
-        if (step % int(steps / 8) == 0):
-            state = state + state3 * .1
-            state3 = torch.clone(state)
-
-    state = state + state1 * .1 + state2 * .1 + state3 * .1
-    for batch in range(batch_size_test):
-        temp = torch.zeros((10))
-        for height in range(img_height):
-            for width in range(img_width):
-                ind = torch.argmax(state[batch, height, width, -1])
-                temp[ind] += 1
-
-        if (target[batch] == torch.argmax(temp)):
-            tot_corr += 1
-    print("Acc: {}".format(tot_corr / tot_batches))
-print("Final Accuracy: {}".format(tot_corr / tot_batches))
 
