@@ -28,7 +28,7 @@ batch_size_test = 30
 learning_rate = 0.01
 log_interval = 10
 
-num_vectors = 5
+num_vectors = 4
 len_vectors = 10
 channels = 3
 img_height =32
