@@ -235,7 +235,6 @@ for epoch in range(epochs):
     print("Epoch: {}/{}  Loss: {}".format(epoch, epochs, loss))
 
 PATH = "./best_models/"
-os.mkdir(PATH)
 for i in range(num_vectors):
     if(i<num_vectors-2):
         torch.save(top_down_model_list[i],PATH+"top_down_model{}".format(i))
