@@ -6,8 +6,6 @@ for name, param in model.named_parameters():
 parameters = list(filter(lambda p: p.requires_grad, model.parameters()))
 assert len(parameters) == 2  # fc.weight, fc.bias
 '''
-from main import model
-
 import os
 import torch
 import torchvision
