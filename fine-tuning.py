@@ -174,59 +174,67 @@ for i in range(num_vectors):
 
 optimizer = torch.optim.Adam(param_list, lr=learning_rate)
 mse = nn.MSELoss()
+try:
+    examples = enumerate(train_loader)
+    batch_idx, (example_data, example_targets) = next(examples)
+    for epoch in range(epochs):
+        optimizer.zero_grad()
 
-examples = enumerate(train_loader)
-batch_idx, (example_data, example_targets) = next(examples)
-for epoch in range(epochs):
-    optimizer.zero_grad()
+        # in case StopIteration error is raised
+        try:
+            batch_idx, (example_data, example_targets) = next(examples)
+        except StopIteration:
+            examples = enumerate(train_loader)
+            batch_idx, (example_data, example_targets) = next(examples)
 
-    # in case StopIteration error is raised
-    try:
-        batch_idx, (example_data, example_targets) = next(examples)
-    except StopIteration:
-        examples = enumerate(train_loader)
-        batch_idx, (example_data, example_targets) = next(examples)
+        example_data = torch.mean(example_data,dim=1)
+        torch.squeeze(example_data)
+        print(example_data.size())
 
-    example_data = torch.mean(example_data,dim=1)
-    torch.squeeze(example_data)
-    print(example_data.size())
+        # initialize state
+        state = init_state(batch_size_train, img_height, img_width, num_vectors, len_vectors)
 
-    # initialize state
-    state = init_state(batch_size_train, img_height, img_width, num_vectors, len_vectors)
+        # put current batches into state
+        state[:, :, :, 0, :] = data_to_state(example_data, batch_size_train)
+        state1 = torch.clone(state)
+        state2 = torch.clone(state)
+        state3 = torch.clone(state)
+        for step in range(steps):
 
-    # put current batches into state
-    state[:, :, :, 0, :] = data_to_state(example_data, batch_size_train)
-    state1 = torch.clone(state)
-    state2 = torch.clone(state)
-    state3 = torch.clone(state)
-    for step in range(steps):
+            delta = compute_all(bottom_up_model_list, top_down_model_list, layer_att_model_list, state, len_vectors,
+                                num_vectors, batch_size_train)
 
-        delta = compute_all(bottom_up_model_list, top_down_model_list, layer_att_model_list, state, len_vectors,
-                            num_vectors, batch_size_train)
+            state = state + delta + .0001 * torch.rand((state.shape)).to(device)
 
-        state = state + delta + .0001 * torch.rand((state.shape)).to(device)
+            # add first state to state in the middle of the steps (allows for RESNET type gradient backprop)
+            if (step % int(steps / 2) == 0):
+                state = state + state1 * .1
+                state1 = torch.clone(state)
 
-        # add first state to state in the middle of the steps (allows for RESNET type gradient backprop)
-        if (step % int(steps / 2) == 0):
-            state = state + state1 * .1
-            state1 = torch.clone(state)
+            if (step % int(steps / 4) == 0):
+                state = state + state2 * .1
+                state2 = torch.clone(state)
 
-        if (step % int(steps / 4) == 0):
-            state = state + state2 * .1
-            state2 = torch.clone(state)
+            if (step % int(steps / 8) == 0):
+                state = state + state3 * .1
+                state3 = torch.clone(state)
 
-        if (step % int(steps / 8) == 0):
-            state = state + state3 * .1
-            state3 = torch.clone(state)
-
-    state = state + state1 * .1 + state2 * .1 + state3 * .1
-    # get loss
-    pred_out = state[:, :, :, -1]
-    targ_out = targets_to_state(example_targets, batch_size_train)
-    loss = mse(pred_out, targ_out)
-    loss.backward()
-    optimizer.step()
-    print("Epoch: {}/{}  Loss: {}".format(epoch, epochs, loss))
+        state = state + state1 * .1 + state2 * .1 + state3 * .1
+        # get loss
+        pred_out = state[:, :, :, -1]
+        targ_out = targets_to_state(example_targets, batch_size_train)
+        loss = mse(pred_out, targ_out)
+        loss.backward()
+        optimizer.step()
+        print("Epoch: {}/{}  Loss: {}".format(epoch, epochs, loss))
+except :
+    PATH = "./best_models/"
+    for i in range(num_vectors):
+        if (i < num_vectors - 2):
+            torch.save(top_down_model_list[i], PATH + "top_down_model{}cifar10".format(i))
+        if (i < num_vectors - 1):
+            torch.save(bottom_up_model_list[i], PATH + "bottom_up_model{}cifar10".format(i))
+            torch.save(layer_att_model_list[i], PATH + "layer_att_model{}cifar10".format(i))
 
 PATH = "./best_models/"
 for i in range(num_vectors):
