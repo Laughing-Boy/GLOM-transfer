@@ -154,10 +154,6 @@ def compute_all(bottom_up_model_list, top_down_model_list, layer_att_model_list,
             att_layer_temp = layer_att_model_list[i](torch.reshape(att_list[:, :, :, i + 1, :], (-1, len_vectors * 9)))
             delta[i + 1] = delta[i + 1] + bottom_up_temp + att_layer_temp
 
-        if i == num_vectors-1:
-            bottom_up_model_list[i]
-
-
     # format delta so that delta and state can be added together
     delta = torch.stack(delta, dim=1)  # .permute(0,2,1)#.permute(2,0,1)
     delta = torch.reshape(delta, (batch_size, img_height, img_width, num_vectors, len_vectors))

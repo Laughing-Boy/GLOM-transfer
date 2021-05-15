@@ -27,7 +27,7 @@ img_height =32
 img_width = 32
 win_size = 3
 epsilon = .7
-epochs = 1
+epochs = 3
 steps = 30
 
 transform = torchvision.transforms.Compose(
