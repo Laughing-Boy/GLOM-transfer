@@ -25,7 +25,7 @@ device = torch.device(dev)
 
 batch_size_train = 30
 batch_size_test = 30
-learning_rate = 0.01
+learning_rate = 0.05
 log_interval = 10
 
 num_vectors = 4
@@ -35,7 +35,7 @@ img_height =32
 img_width = 32
 win_size = 3
 epsilon = .7
-epochs = 10000
+epochs = 1000
 steps = 30
 
 transform = torchvision.transforms.Compose(
@@ -239,10 +239,10 @@ except :
 PATH = "./best_models/"
 for i in range(num_vectors):
     if(i<num_vectors-2):
-        torch.save(top_down_model_list[i],PATH+"top_down_model{}".format(i))
+        torch.save(top_down_model_list[i],PATH+"top_down_model{}cifar10".format(i))
     if(i<num_vectors-1):
-        torch.save(bottom_up_model_list[i],PATH+"bottom_up_model{}".format(i))
-        torch.save(layer_att_model_list[i],PATH+"layer_att_model{}".format(i))
+        torch.save(bottom_up_model_list[i],PATH+"bottom_up_model{}cifar10".format(i))
+        torch.save(layer_att_model_list[i],PATH+"layer_att_model{}cifar10".format(i))
 
 ### Cifar10 to MNIST
 
