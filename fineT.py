@@ -1,4 +1,3 @@
-import os
 import torch
 import torchvision
 import torch.nn as nn
@@ -9,45 +8,42 @@ if torch.cuda.is_available():
     dev = "cuda:0"
 else:
     dev = "cpu"
-print(dev)
 device = torch.device(dev)
 
+import matplotlib.pyplot as plt
 
-## Hyperparamters
-
-batch_size_train = 10
-batch_size_test = 10
+batch_size_train = 25
+batch_size_test = 25
 learning_rate = 0.01
 log_interval = 10
 
 num_vectors = 4
 len_vectors = 10
-channels = 3
-img_height =32
-img_width = 32
+img_height = 28
+img_width = 28
 win_size = 3
 epsilon = .7
-epochs = 3
+epochs = 300
 steps = 30
 
-transform = torchvision.transforms.Compose(
-    [torchvision.transforms.ToTensor(),
-     torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                        download=True, transform=transform)
-train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size_train,
-                                          shuffle=True, num_workers=2)
+train_loader = torch.utils.data.DataLoader(
+  torchvision.datasets.MNIST('./data/', train=True, download=True,
+                             transform=torchvision.transforms.Compose([
+                               torchvision.transforms.ToTensor(),
+                               torchvision.transforms.Normalize(
+                                 (0.1307,), (0.3081,))
+                             ])),
+  batch_size=batch_size_train, shuffle=True)
 
-testset = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                       download=True, transform=transform)
-test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size_test,
-                                         shuffle=False, num_workers=2)
-
-classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
-
-
+test_loader = torch.utils.data.DataLoader(
+  torchvision.datasets.MNIST('./data/', train=False, download=True,
+                             transform=torchvision.transforms.Compose([
+                               torchvision.transforms.ToTensor(),
+                               torchvision.transforms.Normalize(
+                                 (0.1307,), (0.3081,))
+                             ])),
+  batch_size=batch_size_test, shuffle=True)
 
 def data_to_state(example_data,batch_size):
     #reshape MNIST input image and stack image data until the bottom state vector has the entire vector filled
@@ -62,6 +58,7 @@ def targets_to_state(example_targets,batch_size):
     temp_out_state = torch.nn.functional.one_hot(example_targets,num_classes=10).repeat(1,img_height*img_width)
     temp_out_state = temp_out_state.view((batch_size,img_height,img_width,10))
     return temp_out_state.float().to(device)
+
 
 def init_state(batch_size,img_height,img_width,num_vectors,len_vectors):
     state = torch.rand((batch_size,img_height,img_width,num_vectors,len_vectors))*.1
@@ -151,6 +148,7 @@ def compute_all(bottom_up_model_list, top_down_model_list, layer_att_model_list,
     delta = torch.reshape(delta, (batch_size, img_height, img_width, num_vectors, len_vectors))
     return delta
 
+
 bottom_up_model_list = [model(9*len_vectors,len_vectors).to(device) for i in range(num_vectors-1)]
 top_down_model_list= [model(9*len_vectors,len_vectors).to(device) for i in range(num_vectors-2)]
 layer_att_model_list = [model(9*len_vectors,len_vectors).to(device) for i in range(num_vectors-1)]
@@ -166,6 +164,22 @@ for i in range(num_vectors):
 
 optimizer = torch.optim.Adam(param_list, lr=learning_rate)
 mse = nn.MSELoss()
+for param in param_list:
+    param.requires_grad = False
+
+PATH = "best_models/"
+for i in range(num_vectors):
+    if (i < num_vectors - 2):
+        top_down_model_list[i] = torch.load(PATH+"top_down_model{}cifar10".format(i))
+    if (i < num_vectors - 1):
+        bottom_up_model_list[i] = torch.load(PATH+"bottom_up_model{}cifar10".format(i))
+        layer_att_model_list[i] = torch.load(PATH+"layer_att_model{}cifar10".format(i))
+        if i == num_vectors - 1:
+            for x in top_down_model_list[i].parameters():
+                x.requires_grad = True
+            for x in bottom_up_model_list[i].parameters():
+                x.requires_grad = True
+
 
 examples = enumerate(train_loader)
 batch_idx, (example_data, example_targets) = next(examples)
@@ -218,16 +232,8 @@ for epoch in range(epochs):
     loss = mse(pred_out, targ_out)
     loss.backward()
     optimizer.step()
-    print("Epoch: {}/{}  Loss: {}".format(epoch, epochs, loss))
+    print("Epoch: {}/{}  finetuing Loss: {}".format(epoch, epochs, loss))
 
-PATH = "./best_models/"
-os.mkdir(PATH)
-for i in range(num_vectors):
-    if(i<num_vectors-2):
-        torch.save(top_down_model_list[i],PATH+"top_down_model{}".format(i))
-    if(i<num_vectors-1):
-        torch.save(bottom_up_model_list[i],PATH+"bottom_up_model{}".format(i))
-        torch.save(layer_att_model_list[i],PATH+"layer_att_model{}".format(i))
 
 tot_corr = 0
 tot_batches = 0
@@ -275,4 +281,5 @@ for example_data, target in test_loader:
             tot_corr += 1
     print("Acc: {}".format(tot_corr / tot_batches))
 print("Final Accuracy: {}".format(tot_corr / tot_batches))
+
 

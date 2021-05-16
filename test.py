@@ -1,12 +1,3 @@
-'''
-for name, param in model.named_parameters():
-    if name not in ['fc.weight', 'fc.bias']:
-        param.requires_grad = False
-
-parameters = list(filter(lambda p: p.requires_grad, model.parameters()))
-assert len(parameters) == 2  # fc.weight, fc.bias
-'''
-import os
 import torch
 import torchvision
 import torch.nn as nn
@@ -17,11 +8,8 @@ if torch.cuda.is_available():
     dev = "cuda:0"
 else:
     dev = "cpu"
-print(dev)
 device = torch.device(dev)
 
-
-## Hyperparamters
 
 batch_size_train = 30
 batch_size_test = 30
@@ -35,8 +23,7 @@ img_height =32
 img_width = 32
 win_size = 3
 epsilon = .7
-epochs = 1000
-steps = 30
+steps = 10
 
 transform = torchvision.transforms.Compose(
     [torchvision.transforms.ToTensor(),
@@ -172,80 +159,55 @@ for i in range(num_vectors):
         param_list = param_list + list(bottom_up_model_list[i].parameters())
         param_list = param_list + list(layer_att_model_list[i].parameters())
 
-optimizer = torch.optim.Adam(param_list, lr=learning_rate)
-mse = nn.MSELoss()
-try:
-    examples = enumerate(train_loader)
-    batch_idx, (example_data, example_targets) = next(examples)
-    for epoch in range(epochs):
-        optimizer.zero_grad()
 
-        # in case StopIteration error is raised
-        try:
-            batch_idx, (example_data, example_targets) = next(examples)
-        except StopIteration:
-            examples = enumerate(train_loader)
-            batch_idx, (example_data, example_targets) = next(examples)
-
-        example_data = torch.mean(example_data,dim=1)
-        torch.squeeze(example_data)
-        print(example_data.size())
-
-        # initialize state
-        state = init_state(batch_size_train, img_height, img_width, num_vectors, len_vectors)
-
-        # put current batches into state
-        state[:, :, :, 0, :] = data_to_state(example_data, batch_size_train)
-        state1 = torch.clone(state)
-        state2 = torch.clone(state)
-        state3 = torch.clone(state)
-        for step in range(steps):
-
-            delta = compute_all(bottom_up_model_list, top_down_model_list, layer_att_model_list, state, len_vectors,
-                                num_vectors, batch_size_train)
-
-            state = state + delta + .0001 * torch.rand((state.shape)).to(device)
-
-            # add first state to state in the middle of the steps (allows for RESNET type gradient backprop)
-            if (step % int(steps / 2) == 0):
-                state = state + state1 * .1
-                state1 = torch.clone(state)
-
-            if (step % int(steps / 4) == 0):
-                state = state + state2 * .1
-                state2 = torch.clone(state)
-
-            if (step % int(steps / 8) == 0):
-                state = state + state3 * .1
-                state3 = torch.clone(state)
-
-        state = state + state1 * .1 + state2 * .1 + state3 * .1
-        # get loss
-        pred_out = state[:, :, :, -1]
-        targ_out = targets_to_state(example_targets, batch_size_train)
-        loss = mse(pred_out, targ_out)
-        loss.backward()
-        optimizer.step()
-        print("Epoch: {}/{}  Loss: {}".format(epoch, epochs, loss))
-except :
-    PATH = "./best_models/"
-    for i in range(num_vectors):
-        if (i < num_vectors - 2):
-            torch.save(top_down_model_list[i], PATH + "top_down_model{}cifar10".format(i))
-        if (i < num_vectors - 1):
-            torch.save(bottom_up_model_list[i], PATH + "bottom_up_model{}cifar10".format(i))
-            torch.save(layer_att_model_list[i], PATH + "layer_att_model{}cifar10".format(i))
-
-PATH = "./best_models/"
+PATH = "best_models/"
 for i in range(num_vectors):
-    if(i<num_vectors-2):
-        torch.save(top_down_model_list[i],PATH+"top_down_model{}cifar10".format(i))
-    if(i<num_vectors-1):
-        torch.save(bottom_up_model_list[i],PATH+"bottom_up_model{}cifar10".format(i))
-        torch.save(layer_att_model_list[i],PATH+"layer_att_model{}cifar10".format(i))
+    if (i < num_vectors - 2):
+        top_down_model_list[i] = torch.load(PATH+"top_down_model{}cifar10".format(i))
+    if (i < num_vectors - 1):
+        bottom_up_model_list[i] = torch.load(PATH+"bottom_up_model{}cifar10".format(i))
+        layer_att_model_list[i] = torch.load(PATH+"layer_att_model{}cifar10".format(i))
 
-### Cifar10 to MNIST
+tot_corr = 0
+tot_batches = 0
+for example_data, target in test_loader:
+    tot_batches += batch_size_test
 
+    # initialize state
+    state = init_state(batch_size_test, img_height, img_width, num_vectors, len_vectors)
 
+    # put current batches into state
+    state[:, :, :, 0, :] = data_to_state(example_data, batch_size_test)
+    state1 = torch.clone(state)
+    state2 = torch.clone(state)
+    state3 = torch.clone(state)
+    for step in range(steps):
+        delta = compute_all(bottom_up_model_list, top_down_model_list, layer_att_model_list, state, len_vectors,
+                            num_vectors, batch_size_test)
 
+        # update state
+        state = state + delta
+        if (step % int(steps / 2) == 0):
+            state = state + state1 * .1
+            state1 = torch.clone(state)
 
+        if (step % int(steps / 4) == 0):
+            state = state + state2 * .1
+            state2 = torch.clone(state)
+
+        if (step % int(steps / 8) == 0):
+            state = state + state3 * .1
+            state3 = torch.clone(state)
+
+    state = state + state1 * .1 + state2 * .1 + state3 * .1
+    for batch in range(batch_size_test):
+        temp = torch.zeros((10))
+        for height in range(img_height):
+            for width in range(img_width):
+                ind = torch.argmax(state[batch, height, width, -1])
+                temp[ind] += 1
+
+        if (target[batch] == torch.argmax(temp)):
+            tot_corr += 1
+    print("Acc: {}".format(tot_corr / tot_batches))
+print("Final Accuracy: {}".format(tot_corr / tot_batches))
